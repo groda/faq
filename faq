@@ -1,0 +1,475 @@
+#!/usr/bin/env python3
+"""faq — fuzzy-search a readable FAQ of canonical shell recipes.
+
+    faq grep
+
+Full-screen list of the chapter. Type to narrow it. The article stays
+on the right. Esc closes.
+Needs python3 and fzf. glow is optional: when it is installed, the
+article pane and `faq --read` are rendered markdown. The style follows
+the terminal background. Set FAQ_GLOW_STYLE to dark or light to force it.
+Lookup order (first hit wins): $FAQ_HOME, then
+$XDG_DATA_HOME/faq or ~/.local/share/faq, then share/ beside this script.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import re
+import select
+import shlex
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9+._-]*$")
+
+
+class Recipe:
+    def __init__(self, title: str, aliases: str, body: str) -> None:
+        self.title = title
+        self.aliases = aliases
+        self.body = body
+
+
+STOPWORDS = {
+    "a",
+    "an",
+    "how",
+    "i",
+    "me",
+    "my",
+    "the",
+    "please",
+    "can",
+    "you",
+    "your",
+    "what",
+    "tell",
+    "does",
+    "did",
+    "is",
+    "are",
+    "just",
+    "really",
+    "want",
+    "whats",
+    "what's",
+    "could",
+    "would",
+    "should",
+    "to",
+    "why",
+    "do",
+}
+
+
+def normalize_query(query: str) -> str:
+    """Drop filler words. fzf requires every remaining word to occur in one phrase."""
+    kept = [word for word in query.split() if word.lower() not in STOPWORDS]
+    return " ".join(kept) if kept else query
+
+
+def die(msg: str, code: int = 1) -> None:
+    print(f"faq: {msg}", file=sys.stderr)
+    raise SystemExit(code)
+
+
+def search_dirs() -> list[Path]:
+    dirs: list[Path] = []
+    if os.environ.get("FAQ_HOME"):
+        dirs.append(Path(os.environ["FAQ_HOME"]))
+    xdg = os.environ.get("XDG_DATA_HOME")
+    base = Path(xdg) if xdg else Path.home() / ".local" / "share"
+    dirs.append(base / "faq")
+    dirs.append(Path(__file__).resolve().parent / "share")
+    return dirs
+
+
+def find_page(command: str) -> Path | None:
+    if not NAME_RE.match(command):
+        die(f"not a command name: {command!r}")
+    name = command + ".md"
+    for directory in search_dirs():
+        path = directory / name
+        if path.is_file():
+            return path
+    return None
+
+
+def known_commands() -> list[str]:
+    found: dict[str, None] = {}
+    for directory in search_dirs():
+        if not directory.is_dir():
+            continue
+        for path in sorted(directory.glob("*.md")):
+            if NAME_RE.match(path.stem) and path.stem not in found:
+                found[path.stem] = None
+    return list(found)
+
+
+def parse_page(text: str) -> tuple[str, list[Recipe]]:
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    if text.startswith("\ufeff"):
+        text = text[1:]
+    parts = re.split(r"\n(?=## )", text)
+    head = parts[0].splitlines()
+    if head and head[0].startswith("# "):
+        head = head[1:]
+    intro = "\n".join(head).strip()
+    recipes: list[Recipe] = []
+    for part in parts[1:]:
+        lines = part.splitlines()
+        title = lines[0][3:].strip()
+        body = "\n".join(lines[1:]).strip()
+        aliases = ""
+        body_lines = body.splitlines()
+        if body_lines and body_lines[0].lower().startswith("also asked as:"):
+            aliases = body_lines[0].split(":", 1)[1].strip()
+        recipes.append(Recipe(title, aliases, body))
+    return intro, recipes
+
+
+def plain_text(text: str) -> str:
+    out = [line for line in text.splitlines() if not line.strip().startswith("```")]
+    rendered = "\n".join(out).strip()
+    return rendered if rendered.endswith("\n") else rendered + "\n"
+
+
+def article_markdown(recipe: Recipe) -> str:
+    return f"# {recipe.title}\n\n{recipe.body.strip()}\n"
+
+
+def _channel(hex_text: bytes) -> int:
+    value = int(hex_text, 16)
+    bits = len(hex_text) * 4
+    if bits > 8:
+        return value >> (bits - 8)
+    if bits < 8:
+        return value << (8 - bits)
+    return value
+
+
+def _parse_background(data: bytes) -> tuple[int, int, int] | None:
+    match = re.search(rb"rgb:([0-9A-Fa-f]+)/([0-9A-Fa-f]+)/([0-9A-Fa-f]+)", data)
+    if match is None:
+        return None
+    return _channel(match.group(1)), _channel(match.group(2)), _channel(match.group(3))
+
+
+def _query_background() -> tuple[int, int, int] | None:
+    try:
+        tty = open("/dev/tty", "rb+", buffering=0)
+    except OSError:
+        return None
+    import termios
+
+    fd = tty.fileno()
+    try:
+        saved = termios.tcgetattr(fd)
+    except termios.error:
+        tty.close()
+        return None
+    try:
+        quiet = termios.tcgetattr(fd)
+        quiet[3] = quiet[3] & ~(termios.ICANON | termios.ECHO)
+        quiet[6][termios.VMIN] = 0
+        quiet[6][termios.VTIME] = 0
+        termios.tcsetattr(fd, termios.TCSANOW, quiet)
+        tty.write(b"\033]11;?\033\\")
+        data = b""
+        deadline = time.monotonic() + 0.2
+        while time.monotonic() < deadline:
+            ready, _, _ = select.select([fd], [], [], 0.05)
+            if not ready:
+                continue
+            data += os.read(fd, 256)
+            if b"rgb:" in data and (b"\a" in data or b"\\" in data):
+                break
+        return _parse_background(data)
+    except (OSError, termios.error):
+        return None
+    finally:
+        termios.tcsetattr(fd, termios.TCSANOW, saved)
+        tty.close()
+
+
+def _style_from_environment() -> str | None:
+    raw = os.environ.get("COLORFGBG", "")
+    bg = raw.split(";")[-1] if raw else ""
+    if not bg.isdigit():
+        return None
+    # COLORFGBG is "foreground;background". 0 is black, 7 and 15 are white.
+    return "light" if int(bg) in (7, 15) else "dark"
+
+
+def choose_style() -> None:
+    if os.environ.get("FAQ_GLOW_STYLE") or not shutil.which("glow"):
+        return
+    color = _query_background()
+    if color is not None:
+        luminance = 0.2126 * color[0] + 0.7152 * color[1] + 0.0722 * color[2]
+        os.environ["FAQ_GLOW_STYLE"] = "light" if luminance >= 140 else "dark"
+        return
+    os.environ["FAQ_GLOW_STYLE"] = _style_from_environment() or "dark"
+
+
+def render_markdown(text: str, width: int | None = None) -> str:
+    glow = shutil.which("glow")
+    if glow is None:
+        return plain_text(text)
+    cmd = [glow, "--pager=false", "-s", os.environ.get("FAQ_GLOW_STYLE", "dark")]
+    if width is not None and width > 0:
+        cmd.extend(["-w", str(width)])
+    cmd.append("-")
+    proc = subprocess.run(
+        cmd,
+        input=text,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+    )
+    if proc.returncode != 0 or not proc.stdout.strip():
+        return plain_text(text)
+    return proc.stdout if proc.stdout.endswith("\n") else proc.stdout + "\n"
+
+
+def preview_width() -> int | None:
+    raw = os.environ.get("FZF_PREVIEW_COLUMNS", "")
+    if raw.isdigit():
+        return max(20, int(raw) - 2)
+    return None
+
+
+def write_recipe(recipe: Recipe) -> None:
+    text = article_markdown(recipe)
+    if sys.stdout.isatty() and shutil.which("glow"):
+        sys.stdout.write(render_markdown(text))
+        return
+    sys.stdout.write(plain_text(text))
+
+
+def show_article(command: str, index_text: str) -> None:
+    try:
+        index = int(index_text)
+    except ValueError:
+        die(f"bad index {index_text!r}")
+    _path, _intro, recipes = load(command)
+    if not 1 <= index <= len(recipes):
+        die(f"index {index} out of range")
+    sys.stdout.write(render_markdown(article_markdown(recipes[index - 1]), preview_width()))
+
+
+def header_text(intro: str) -> str:
+    basic = next((ln.strip() for ln in intro.splitlines() if ln.startswith("Basic form:")), "")
+    lines = [basic] if basic else []
+    lines.append("Type to narrow the list. Up and down move. Esc closes.")
+    return "\n".join(lines)
+
+
+def load(command: str) -> tuple[Path, str, list[Recipe]]:
+    path = find_page(command)
+    if path is None:
+        looked = ", ".join(str(d) for d in search_dirs())
+        die(f"no chapter for {command}. Looked in {looked}")
+    intro, recipes = parse_page(path.read_text(encoding="utf-8"))
+    if not recipes:
+        die(f"{path} has no '## ' questions")
+    return path, intro, recipes
+
+
+def print_list() -> None:
+    commands = known_commands()
+    if not commands:
+        die("no chapters installed")
+    print("\n".join(commands))
+
+
+def check_page(path: Path) -> list[str]:
+    problems: list[str] = []
+    intro, recipes = parse_page(path.read_text(encoding="utf-8"))
+    if not intro:
+        problems.append("missing introduction before the first ##")
+    if "Basic form:" not in intro:
+        problems.append("introduction has no 'Basic form:' line")
+    titles: set[str] = set()
+    for index, recipe in enumerate(recipes, start=1):
+        where = f"#{index} {recipe.title!r}"
+        if not recipe.title:
+            problems.append(f"{where}: empty title")
+        if recipe.title in titles:
+            problems.append(f"{where}: duplicate title")
+        titles.add(recipe.title)
+        if not recipe.aliases:
+            problems.append(f"{where}: missing 'Also asked as:' line")
+        fences = recipe.body.count("```")
+        if fences == 0:
+            problems.append(f"{where}: no code fence")
+        elif fences % 2:
+            problems.append(f"{where}: unclosed code fence")
+    if not recipes:
+        problems.append("no questions")
+    return problems
+
+
+def check_all() -> None:
+    failed = False
+    seen: set[Path] = set()
+    for directory in search_dirs():
+        if not directory.is_dir():
+            continue
+        for path in sorted(directory.glob("*.md")):
+            if path in seen or not NAME_RE.match(path.stem):
+                continue
+            seen.add(path)
+            problems = check_page(path)
+            if problems:
+                failed = True
+                print(f"{path}", file=sys.stderr)
+                for problem in problems:
+                    print(f"  {problem}", file=sys.stderr)
+            else:
+                intro, recipes = parse_page(path.read_text(encoding="utf-8"))
+                print(f"ok  {path.stem:12} {len(recipes):3} questions  {path}")
+    if not seen:
+        die("no chapters found")
+    if failed:
+        raise SystemExit(1)
+
+
+def article_rows(recipes: list[Recipe]) -> str:
+    rows: list[str] = []
+    for index, recipe in enumerate(recipes, start=1):
+        title = recipe.title.replace("\t", " ")
+        blob = f"{title} {recipe.aliases}".replace("\t", " ")
+        rows.append(f"{index}\t{title}\t{blob}")
+    return "\n".join(rows) + "\n"
+
+
+def best_index(fzf: str, rows: str, query: str) -> int | None:
+    proc = subprocess.run(
+        [fzf, "--filter", query, "--delimiter=\t"],
+        input=rows,
+        text=True,
+        stdout=subprocess.PIPE,
+    )
+    match = proc.stdout.splitlines()
+    if not match:
+        return None
+    return int(match[0].split("\t", 1)[0])
+
+
+def read_chapter(command: str) -> None:
+    choose_style()
+    path, intro, recipes = load(command)
+    parts = [f"# {path.stem}\n\n{intro.strip()}\n"]
+    for recipe in recipes:
+        parts.append("\n" + article_markdown(recipe))
+    text = "\n".join(parts)
+    if shutil.which("glow") and sys.stdout.isatty():
+        columns = shutil.get_terminal_size(fallback=(80, 24)).columns
+        rendered = render_markdown(text, max(20, columns - 2))
+    else:
+        rendered = plain_text(text)
+    if sys.stdout.isatty():
+        pager = os.environ.get("PAGER")
+        if pager:
+            raise SystemExit(subprocess.run(shlex.split(pager), input=rendered, text=True).returncode)
+        less = shutil.which("less")
+        if less:
+            raise SystemExit(subprocess.run([less, "-R"], input=rendered, text=True).returncode)
+        more = shutil.which("more")
+        if more:
+            raise SystemExit(subprocess.run([more], input=rendered, text=True).returncode)
+    sys.stdout.write(rendered if rendered.endswith("\n") else rendered + "\n")
+
+
+def search(command: str, query: str) -> None:
+    fzf = shutil.which("fzf")
+    if not fzf:
+        die("fzf is not installed")
+    choose_style()
+    _path, intro, recipes = load(command)
+    rows = article_rows(recipes)
+    if not sys.stdin.isatty():
+        if not query:
+            die("type a question")
+        index = best_index(fzf, rows, query)
+        if index is None:
+            die("nothing matched")
+        write_recipe(recipes[index - 1])
+        return
+    script = str(Path(__file__).resolve())
+    preview = (
+        f"{shlex.quote(sys.executable)} {shlex.quote(script)} "
+        f"--preview {shlex.quote(command)} {{1}}"
+    )
+    proc = subprocess.run(
+        [
+            fzf,
+            "--delimiter=\t",
+            "--with-nth=2",
+            "--layout=reverse",
+            "--header-first",
+            "--info=inline",
+            "--prompt=ask> ",
+            "--height=100%",
+            "--preview-window=right,50%,border-left,wrap",
+            f"--preview={preview}",
+            "--bind=enter:ignore",
+            "--bind=double-click:ignore",
+            f"--header={header_text(intro)}",
+            *(["--query=" + query] if query else []),
+        ],
+        input=rows,
+        text=True,
+        stdout=subprocess.PIPE,
+    )
+    if proc.returncode in (0, 1, 130):
+        return
+    die(f"fzf failed ({proc.returncode})")
+
+
+def main(argv: list[str]) -> None:
+    parser = argparse.ArgumentParser(prog="faq", description="Search a FAQ of shell recipes.")
+    parser.add_argument("--list", action="store_true", help="list installed chapters")
+    parser.add_argument("--check", action="store_true", help="check chapter files")
+    parser.add_argument("--read", action="store_true", help="show a whole chapter in $PAGER")
+    parser.add_argument("--preview", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("command", nargs="?")
+    parser.add_argument("query", nargs=argparse.REMAINDER)
+    args = parser.parse_args(argv)
+    query = args.query
+    if query[:1] == ["--"]:
+        query = query[1:]
+
+    if args.list:
+        print_list()
+        return
+    if args.check:
+        check_all()
+        return
+    if args.preview:
+        if args.command is None or len(query) != 1:
+            die("--preview needs a command and an index")
+        show_article(args.command, query[0])
+        return
+    if args.read:
+        if args.command is None or query:
+            die("usage: faq --read COMMAND")
+        read_chapter(args.command)
+        return
+    if args.command is None:
+        print("usage: faq COMMAND [question words]\n")
+        print("chapters:")
+        for command in known_commands():
+            print(f"  {command}")
+        return
+    search(args.command, normalize_query(" ".join(query).strip()))
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
