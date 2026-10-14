@@ -433,7 +433,10 @@ def search(command: str, query: str) -> None:
     die(f"fzf failed ({proc.returncode})")
 
 
-def main(argv: list[str]) -> None:
+def main(argv: list[str] | None = None) -> None:
+    if argv is None:
+        argv = sys.argv[1:]
+
     parser = argparse.ArgumentParser(prog="faq", description="Search a FAQ of shell recipes.")
     parser.add_argument("--list", action="store_true", help="list installed chapters")
     parser.add_argument("--check", action="store_true", help="check chapter files")

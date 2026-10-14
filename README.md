@@ -33,15 +33,22 @@ The chapters are ordinary markdown. Add a command by adding a file. Change a rec
 
 ## Install
 
-You need Python 3 and `fzf`. `glow` is optional.
+You need  [uv](https://docs.astral.sh/uv/), and `fzf`, and optionally `glow`.
+
 
 ```sh
-install -m 755 faq ~/.local/bin/faq
+# Clone the repo
+git clone https://github.com/groda/faq
+cd faq
+
+# Install the faq command (re-run with --force to upgrade)
+uv tool install .          # or: uv tool install --force .
+
+# Install the chapter files
 mkdir -p ~/.local/share/faq
 cp share/*.md ~/.local/share/faq/
 ```
 
-`~/.local/bin` has to be on your `PATH`. `faq --check` should then print one line per chapter.
 
 ## Commands
 

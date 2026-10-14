@@ -1,0 +1,16 @@
+[project]
+name = "faq"
+version = "1.0.0"
+description = "Search a FAQ of shell recipes"
+requires-python = ">=3.14"
+dependencies = [
+    "argcomplete>=3",
+    # any other libraries you need
+]
+
+[project.scripts]
+faq = "faq:main"          
+
+[build-system]
+requires = ["uv_build"]
+build-backend = "uv_build"
