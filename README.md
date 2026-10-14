@@ -49,6 +49,19 @@ mkdir -p ~/.local/share/faq
 cp share/*.md ~/.local/share/faq/
 ```
 
+## Shell completion (optional)
+
+Tab completion for chapter names and options is available via [argcomplete](https://github.com/kislyuk/argcomplete).
+
+After installing, enable tab completion:
+
+```sh
+uv tool install argcomplete
+eval "$(register-python-argcomplete faq)"
+```
+
+Add the eval line to your `~/.zshrc` or `~/.bashrc` to make it permanent.
+
 
 ## Commands
 

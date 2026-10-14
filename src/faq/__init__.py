@@ -25,6 +25,13 @@ import sys
 import time
 from pathlib import Path
 
+try:
+    import argcomplete
+    from argcomplete.completers import SuppressCompleter
+except ImportError:
+    argcomplete = None
+    SuppressCompleter = None
+
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9+._-]*$")
 
 
@@ -109,6 +116,10 @@ def known_commands() -> list[str]:
             if NAME_RE.match(path.stem) and path.stem not in found:
                 found[path.stem] = None
     return list(found)
+
+
+def chapter_completer(prefix, parsed_args, **kwargs):
+    return [name for name in known_commands() if name.startswith(prefix)]
 
 
 def parse_page(text: str) -> tuple[str, list[Recipe]]:
@@ -442,9 +453,20 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--check", action="store_true", help="check chapter files")
     parser.add_argument("--read", action="store_true", help="show a whole chapter in $PAGER")
     parser.add_argument("--preview", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("command", nargs="?")
+    
+    command_arg = parser.add_argument("command", nargs="?")
+    command_arg.completer = chapter_completer
+
     parser.add_argument("query", nargs=argparse.REMAINDER)
+
+    if argcomplete:
+        argcomplete.autocomplete(
+            parser,
+            default_completer=SuppressCompleter(),
+        )
+
     args = parser.parse_args(argv)
+
     query = args.query
     if query[:1] == ["--"]:
         query = query[1:]

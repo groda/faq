@@ -2,7 +2,7 @@
 name = "faq"
 version = "1.0.0"
 description = "Search a FAQ of shell recipes"
-requires-python = ">=3.14"
+requires-python = ">=3.9"
 dependencies = [
     "argcomplete>=3",
     # any other libraries you need
