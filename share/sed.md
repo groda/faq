@@ -60,6 +60,20 @@ sed -i.bak 's/pattern/pattern/' -- file
 
 Use a backup suffix until the script is right. Use bare `-i` only when you can lose the original. `-i` refuses to read standard input as the file to edit. It needs a named file. A symlink is edited in place as the symlink's target only if you pass `--follow-symlinks`. Otherwise GNU sed may replace the symlink with a new regular file. That flag is GNU.
 
+## Replace a string in multiple files
+Also asked as: how to replace a string in multiple files; sed multiple files; sed -i many files; replace in all files; find sed replace; in place across a directory
+`sed` accepts more than one file. With `-i` it rewrites each named file. Without `-i` it only prints, and the files stay as they were. A shell glob is the list when the files are in one directory. `sed` does not walk a tree. `find -exec` is the form that does. Add `g` if every match on a line should change, not only the first.
+
+```sh
+sed -i 's/pattern/pattern/g' -- file file
+```
+
+```sh
+find . -type f -name 'pattern' -exec sed -i 's/pattern/pattern/g' {} +
+```
+
+Use the first when the shell can expand the names. Use the second for a directory, or when names contain spaces. On macOS the in-place flag needs a suffix argument, so the command is `sed -i '' 's/pattern/pattern/g'`. GNU sed treats `-i ''` differently. A glob that matches nothing is left literal by bash, and sed looks for a file named with a star. A line-number address without `-s` counts across the files as one stream. `-i` still writes each file. Test on a copy. There is no backup unless you used a suffix.
+
 ## Use extended regular expressions
 Also asked as: sed -E; sed -r; extended regex; unescaped parentheses; alternation in sed; POSIX -E
 `-E` selects extended regular expressions. `+`, `?`, `|`, and `()` then have their special meaning and do not need backslashes. `-r` is the older GNU spelling of the same switch. Prefer `-E` if you want the portable flag. macOS sed accepts `-E` and does not accept `-r`. Without `-E`, a `+` is a literal plus, and a group is `\(` `\)`.
