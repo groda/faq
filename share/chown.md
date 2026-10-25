@@ -2,7 +2,7 @@
 
 `chown` changes the owner and group of a file. It does not change the mode. That is `chmod`. It does not move the file. Only root can give a file to another user. A normal user cannot hand a file away, and cannot claim someone else's file. With no operand it prints a short error and exits non-zero. GNU chown from coreutils on Linux is assumed here. macOS `chown` is BSD. It has `-R` and `-h`, and it has no `--reference` or `--from`. BusyBox `chown` usually has `-R` and `-h`. Exit status is 0 when every named file was changed, or was already as requested. It is non-zero when a file is missing, you are not allowed, or a recursive walk cannot enter a directory.
 
-ic form: chown user -- file
+Basic form: chown user -- file
 
 The first operand is `user`, `user:group`, or `:group`. Later operands are paths. A name that starts with `-` is a flag unless it comes after `--`. Quote a name with spaces. A glob is expanded by the shell. `user:` with a trailing colon sets the group to that user's login group. `:group` changes only the group. A bare `user` changes only the owner.
 
