@@ -1,324 +1,201 @@
 # tar
 
-`tar` packs files and directories into one archive, and later lists or extracts that archive. It does not search file contents, it does not encrypt, and it does not delete the originals. On GNU tar a `.tar.gz` is not compressed just because of the name. Compression is a filter (`-z`, `-j`, `-J`, `--zstd`, or `-a`) wrapped around one tar stream. Gzip alone compresses one file and forgets the tree. You must choose one operation: `-c` to create, `-x` to extract, or `-t` to list. Without one of those, tar has nothing to do.
+`tar` stores files in one archive and pulls them back out. The name is tape archive. In the olden days the archive was a magnetic tape. Today it is almost always a file on disk. `tar` does not compress by itself. A `.tar.gz` is a tar archive that gzip compressed, which `-z` asks for. With no mode flag it prints help and exits non-zero. GNU tar 1.34 on Linux is assumed here. macOS ships bsdtar. It accepts `-c`, `-x`, `-t`, and `-f`, and it differs on `--strip-components`, `--one-top-level`, and the exit status of a warning. BusyBox tar has create, list, and extract, and a smaller set of compression flags. Exit status is 0 when the operation finished cleanly. It is 1 when some files changed while being read, or differed. It is 2 on a fatal error, including a missing archive and a bad option. A warning is not always 0.
 
 Basic form: tar -cf archive.tar file
 
-`-f` takes the archive name as its argument. Every later path is a file to store or a member to extract, not the archive. Short flags cluster, and the dash is optional on GNU tar, so `tar czf archive.tar.gz dir` is the same idea as `tar -czf`. Quote globs with single quotes. The shell expands `*` before tar sees it. Put paths you will replace after `--`, so a leading dash stays a path. GNU tar on Linux is assumed here. macOS ships bsdtar: the same `-c`, `-x`, `-t`, `-f`, `-z`, `-j`, `-J`, `-v`, and `-C`, but it often compresses from the filename even when you never asked. BusyBox tar can create, list, and extract, and a given build often lacks `--wildcards`, `--delete`, `--exclude-vcs`, `-a`, and `--one-top-level`. Exit status is 0 when the run finished cleanly. It is 1 when `-d` finds a difference, or when a file changes while `-c`, `-r`, or `-u` is reading it. It is 2 when the archive will not open, a member you named is absent, a compressor rejects the stream, or a source path is missing. A bad command line can exit 64.
+The mode comes first. `-c` creates, `-x` extracts, `-t` lists. `-f` names the archive, and it consumes the next argument. That is the order bug. `-cf archive.tar` is create. `-fc archive.tar` treats `c` as the archive name. Operands after the archive are member paths. `--` before a path stops a leading dash from looking like a flag. Quote a name with spaces. A glob is expanded by the shell before `tar` sees it.
 
 ## Create an archive
-Also asked as: how to create a tar file; tar -cf; tar -c; make an archive; pack a directory; tar create
-`-c` writes a new archive. `-f` names it. Directories are stored recursively, under their own name, including files that start with a dot. With no `-v`, success prints nothing. The files you named stay on disk. This command does not gzip the result.
+Also asked as: tar -cf; make a tar; create a tarball; tar a directory; pack files
+`-c` creates a new archive. `-f` names it. Everything after the archive name is stored. A directory is stored with its contents. The archive is truncated if it already exists. Compression is a separate flag. Without `-z` or `-J` or `-a` you get an uncompressed `.tar`. The source files are not removed.
 
 ```sh
 tar -cf archive.tar -- file
 ```
 
-People treat a silent exit as "nothing happened." Check with `tar -tf archive.tar`. A missing source is fatal, exit 2, and the archive from that run should not be trusted. `tar -cf archive.tar` with no paths refuses to write an empty archive. The next word after `-f` is the archive name, so `tar -cf file dir` archives `dir` into an archive named `file`.
+People write `-cfz` and tar takes `z` as the archive name, then fails. The `f` must be followed by the filename. `-czf archive.tar` is the compressed form. People also expect the archive to appear inside the directory they named. It appears in the current directory, under the name you gave `-f`. A directory operand stores the directory name as a prefix. `tar -cf archive.tar -C dir .` stores the contents without that prefix.
 
-## Extract an archive
-Also asked as: how to extract a tar file; tar -xf; tar -x; untar; unpack an archive; tar extract overwrite
-`-x` writes the members into the current directory, creating directories the stored paths need. `-f` names the archive. With no `-v`, success prints nothing. Existing files are overwritten. Files that are not in the archive are left alone. This is not a mirror of the tree.
+## Create a gzipped archive
+Also asked as: tar -czf; tar.gz; tarball gzip; compress a tar; tar cvzf
+`-z` filters the archive through gzip. The usual file name is `archive.tar.gz`. `-j` is bzip2. `-J` is xz. `-a` picks the compressor from the archive name, so `archive.tar.gz` gets gzip. The flag still has to sit with the mode, and `-f` still consumes the next word. Listing and extracting a compressed archive need the same idea, or `-a`.
 
 ```sh
-tar -xf archive.tar
+tar -czf archive.tar.gz -- file
 ```
 
-People add `-z` from habit. On GNU tar, extract detects gzip, bzip2, and xz by itself, and the wrong letter makes the child compressor fail with exit 2. A tarball of loose files spills into the current directory. Stored paths are used as written, so the names you get are the names `tar -tf` prints, not a flat list of basenames.
+People create `archive.tar` and then gzip it in a second step, which works and is the same bytes. One command is enough. People pass `-z` when extracting a `.tar.gz` and also pass the uncompressed name. The `-f` argument is the real filename. A corrupt gzip stream fails at extract with status 2. Create does not check that you can read every file until it reads it. A permission denied on one file is a warning and a non-zero status. The archive can still have been written.
 
 ## List what is in an archive
-Also asked as: list tar contents; tar -tf; tar -t; see files without extracting; names inside a tarball; tar tf
-`-t` prints every member name, one per line, and writes nothing to disk. `-f` names the archive. GNU tar detects a compressed stream here, so a `.tar.gz` does not need `-z`. A missing archive prints an error on stderr and exits 2.
+Also asked as: tar -tf; list tarball; tar tvf; what files are in this tar; tar table of contents
+`-t` lists member names. `-f` names the archive. `-v` adds the mode, owner, size, and time, in a form like `ls -l`. Compression is detected from the file on GNU tar, so `-z` is optional for a `.tar.gz`. The list is the names stored in the archive, not the names they would have after `--strip-components`.
 
 ```sh
 tar -tf archive.tar
 ```
 
-People expect sizes and permissions. This listing is names only. They also pass `-z` to "be safe" on a plain `.tar` or an xz archive. Forcing gzip on a stream that is not gzip fails even though plain `-tf` would have worked. The names are the exact strings you must pass back to extract one member.
+People `tar -tf` a file that is not an archive and get a short error and status 2. People also read the verbose owner as the owner the extract will use. Extract maps the owner unless you are root or you pass a preserve flag. The list does not say whether the member is a symlink. `-v` does. A member named `file` and a member named `./file` are different names. Extract writes the name that is stored.
 
-## Show size, owner, and mode
-Also asked as: tar -tvf; long listing; permissions inside a tar; size of members; tar list like ls; verbose table of contents
-`-t` lists, `-v` adds a long line per member, and `-f` names the archive. The line looks like `ls -l`: mode, `owner/group`, size in bytes, modification time, then the member name. A symlink shows `->` and its target. Nothing is extracted.
-
-```sh
-tar -tvf archive.tar
-```
-
-People read the size column as the compressed size of the `.tar.gz`. It is the size of that member inside the tar stream, before the outer compression. The size of the archive file itself is what `ls -l` says about `archive.tar`, not what `-tvf` says about each line. Owner names come from the archive. They are not recomputed for your machine.
-
-## Create a gzip archive
-Also asked as: tar -czf; make a tar.gz; tar cvzf; tgz versus tar.gz; gzip a directory; macOS tar.gz without -z
-`-c` creates, `-z` filters the whole archive through gzip, and `-f` names the file. `.tar.gz` and `.tgz` are the same layout. `-v` prints the member names it stores. On GNU tar, `-z` is what actually compresses. The suffix does not.
+## Extract an archive
+Also asked as: tar -xf; untar; extract tarball; unpack tar.gz; tar xvf
+`-x` extracts. `-f` names the archive. Member names are written relative to the current directory, unless you pass `-C`. A compressed archive is detected. Existing files are overwritten. Existing directories are not replaced. They are entered. `-v` prints each name as it is written. `-k` does not overwrite an existing file.
 
 ```sh
-tar -czf archive.tar.gz -- dir
+tar -xf archive.tar
 ```
 
-`tar -cf archive.tar.gz -- dir` succeeds and writes an uncompressed tar that is merely named like gzip. Tools that require a gzip header will reject it. macOS bsdtar often compresses from the `.gz` suffix anyway, so a recipe that works on a Mac can produce a different file on GNU tar. Gzip is one stream around the whole archive, not a separate compression of each file.
+People extract in the wrong directory and scatter files. `-C dir` extracts into `dir`, which must already exist. People expect `-x` to delete files that are not in the archive. It only writes members. A member with an absolute path is stripped to a relative path on GNU tar unless you pass `-P`. That strip is the safe default. `-P` is how you ask for the dangerous form.
 
-## Create a bzip2 or xz archive
-Also asked as: tar -cjf; tar -cJf; tar.bz2; tar.xz; tar -j; tar -J; bzip2 versus xz
-`-j` filters through bzip2. `-J` filters through xz. Both are create-time choices, used with `-c` and `-f` the same way `-z` is. The capital letter is the only difference between gzip's cousin flags, and it is easy to swap. Neither flag changes how paths are stored.
-
-```sh
-tar -cjf archive.tar.bz2 -- dir
-```
-
-```sh
-tar -cJf archive.tar.xz -- dir
-```
-
-Use `-j` when you need `.tar.bz2`. Use `-J` when you need `.tar.xz`. They do not detect each other. Feeding `-j` a tree you meant to store as xz just makes a bzip2 file with the wrong name if you also picked the wrong suffix. On extract, GNU tar does not need either flag if you leave the compressor unspecified.
-
-## Create a zstd archive
-Also asked as: tar --zstd; tar.zst; zstd a directory; there is no -zstd; GNU tar zstd
-`--zstd` filters the archive through zstd. There is no short letter. `-z` is gzip. Clustered `-zstd` is not this option. GNU tar has `--zstd`. BusyBox has it only when that build was compiled with zstd. Pair it with `-c` and `-f`.
-
-```sh
-tar --zstd -cf archive.tar.zst -- dir
-```
-
-People write `tar -czstd` or `tar -c -zstd` and get a gzip attempt or an illegal option. The long option has to stand on its own. As with gzip, the `.zst` suffix does not turn compression on by itself. A wrong compressor flag on extract fails. Plain `-xf` lets GNU tar detect the stream.
-
-## Choose compression from the suffix
-Also asked as: tar -a; tar --auto-compress; tar.gz that is not gzip; suffix picks the compressor; GNU -a
-`-a` makes GNU tar pick the compressor from the archive name when creating. `.tar.gz` and `.tgz` mean gzip, `.tar.bz2` means bzip2, `.tar.xz` and `.txz` mean xz, `.tar.zst` means zstd. A plain `.tar` stays uncompressed. `-a` is GNU. It does not replace `-c` or `-f`.
-
-```sh
-tar -caf archive.tar.gz -- dir
-```
-
-People think every tar looks at the suffix. GNU tar does not, unless you pass `-a` or an explicit compressor. macOS bsdtar often does it without `-a`, which hides the bug until the archive is moved to Linux. `-a` on extract just means "detect," which GNU `-xf` already does. A suffix that tar does not know, compressed with `-a`, stays an uncompressed tar under a hopeful name.
-
-## Extract a compressed archive
-Also asked as: extract tar.gz without -z; tar -xf archive.tar.gz; tar -xzf failed; auto detect compression; wrong compressor flag; untar tar.xz
-GNU tar reads the compression from the bytes when you extract or list. `-x` extracts, `-f` names the archive, and no `-z`, `-j`, or `-J` is required. The same command works for gzip, bzip2, and xz. Success with no `-v` prints nothing and overwrites files already on disk.
-
-```sh
-tar -xf archive.tar.gz
-```
-
-```sh
-tar -xzf archive.tar.gz
-```
-
-Use the first form. Use the second only when you know the stream is gzip and you want to force that. `-z` on an xz or bzip2 archive, or on a plain tar, makes gzip reject the input and tar exit 2, even though omitting `-z` would have worked. BusyBox builds are the case that sometimes still wants the letter. If plain `-xf` cannot open it, then pass the letter that matches the file you actually have.
-
-## Extract into a chosen directory
-Also asked as: tar -C; extract into a directory; tar -xf -C; unpack into a folder; change to directory before extract
-`-C` changes into a directory before tar writes members. `-x` extracts and `-f` names the archive. Paths from the archive are created under that directory. `-C` does not create its own argument. Make the directory first. It does not strip a prefix. The stored relative paths are still appended underneath.
+## Extract into a directory
+Also asked as: tar -C; extract to a folder; tar change directory; unpack into dir; -C and -f order
+`-C` changes the directory `tar` uses, and it applies to what follows it. `tar -xf archive.tar -C dir` extracts into `dir`. `tar -C dir -xf archive.tar` does the same. The directory must exist. `-C` does not create it. You can give `-C` more than once. Each one applies to the operands after it.
 
 ```sh
 tar -xf archive.tar -C dir
 ```
 
-The gotcha is argument order. `-f` consumes the next word, so `tar -xf -C dir archive.tar` tries to open an archive named `-C`. Put the archive name immediately after `-f`, and put `-C dir` where it cannot be eaten. `-C` applies to the files that follow it. It is not a global rename of members. A member stored as `dir/file` still comes out as `dir/file` under the directory you named.
+People put `-C` after a list of member names and it does not apply to those names. Place it before the operands it should affect, or before `-x` if the whole extract should land there. A relative `-C` is relative to the shell's current directory, not to the archive. Extracting as root into `/` is how a tarball with a member named `etc/passwd` becomes a bad day. Look at `-t` first. Extract into an empty directory you made.
 
-## Extract one member
-Also asked as: extract one file from a tar; tar -xf a single path; Not found in archive; extract one directory; member name must match
-Name the member after the archive. `-x` extracts only that member and the parents it needs, and `-f` names the archive. The string has to match a line from `tar -tf`, including directory prefixes. A basename is not enough when the archive stored `dir/file`.
-
-```sh
-tar -xf archive.tar -- 'path'
-```
-
-People copy a path from their tree instead of from the archive, and tar exits 2 with "Not found in archive." Quotes matter once the name contains spaces or globs. Without `--wildcards`, a `*` is a literal character in a member name, not a pattern. Extracting a directory member extracts that prefix, not every file whose basename happens to match.
-
-## Extract members that match a glob
-Also asked as: tar --wildcards; extract all files matching a pattern; Pattern matching characters used in file names; tar --no-wildcards; glob inside an archive
-GNU tar does not glob member names unless you pass `--wildcards`. The pattern is then a shell-style glob matched against the stored names. Quote it, or the shell expands it against the current directory first and tar never sees the star. `--` keeps the pattern from being read as an option.
-
-```sh
-tar --wildcards -xf archive.tar -- '*.txt'
-```
-
-Without `--wildcards`, tar warns "Pattern matching characters used in file names" and looks for a member whose name is literally `*.txt`. That member is not there, so it exits 2. This flag is GNU. The glob matches the whole stored path, so `*.txt` can match `dir/notes.txt`. It is not a search of file contents. `--no-wildcards` forces a literal name when a real filename contains a star or a bracket.
-
-## Choose the prefix stored in the archive
-Also asked as: archive without the parent directory; tar -C to store contents; paths inside the tar; leading ./ in member names; tar the folder or its contents
-`tar -cf archive.tar -- dir` stores every path with the `dir/` prefix, and a later extract recreates `dir`. To store the contents as seen from inside that directory, `-C dir` changes there first and `.` is the tree you pack. `.` is a real member prefix. Listing then shows `./file`, not `file`.
-
-```sh
-tar -cf archive.tar -- dir
-```
-
-```sh
-tar -C dir -cf archive.tar .
-```
-
-Use the first form when the directory name should be part of the archive. Use the second when you want what is inside `dir` and you can tolerate `./`. The gotcha is combining them wrong: `-f` eats `-C` if you write `tar -cf -C dir archive.tar .`. A trailing slash on `dir/` does not drop the prefix on GNU tar. Shell `*` inside the directory also drops dotfiles, which naming `dir` or `.` does not.
-
-## Leave out matching paths
-Also asked as: tar --exclude; exclude a directory; exclude a glob; leave out node_modules; quote exclude patterns; tar -X; tar --exclude-from
-`--exclude` takes a shell glob, not a regular expression, and skips matching paths while creating, listing, or extracting. A pattern with no slash matches that name in any directory, so `*.o` drops object files everywhere and also drops a directory whose own name matches. Excluding a directory drops everything under it. Quote the pattern.
-
-```sh
-tar --exclude='pattern' -cf archive.tar -- dir
-```
-
-```sh
-tar -X exclude-file -cf archive.tar -- dir
-```
-
-Use `--exclude` for one or two globs. Use `-X` (the same as `--exclude-from`) when the globs are listed one per line in a file. Those lines are not expanded by the shell either. The gotcha is an unquoted `*`. The shell replaces it with names in the current directory, tar excludes those specific names, and the rest of the tree is stored. Exclude patterns do not apply only to the first path component unless you anchor them on purpose.
-
-## Leave version control out
-Also asked as: tar --exclude-vcs; exclude .git; do not pack git; tar --exclude-vcs-ignores; skip .svn and CVS
-`--exclude-vcs` drops the metadata directories of the usual version-control systems, including `.git`, `.svn`, and `CVS`, and then archives the rest. It is a GNU option. It does not read `.gitignore`. It does not skip files you ignored. It only skips those VCS directories.
-
-```sh
-tar --exclude-vcs -cf archive.tar -- dir
-```
-
-```sh
-tar --exclude-vcs-ignores -cf archive.tar -- dir
-```
-
-Use `--exclude-vcs` when the goal is "no repository metadata." Use `--exclude-vcs-ignores` when you also want the ignore rules from the tree. Both are GNU, and neither is implied by `--exclude='.git'` written against the wrong relative path. A hand-written `--exclude='.git'` does work for a directory of that name at any level, because exclude patterns are unanchored, but it will not catch every VCS name `--exclude-vcs` knows.
-
-## Do not overwrite existing files
-Also asked as: tar -k; tar --keep-old-files; tar --skip-old-files; tar --keep-newer-files; extract without clobbering; File exists
-Extract overwrites by default and does not ask. `-k` (`--keep-old-files`) refuses to replace a file that is already there, prints "File exists" on stderr, leaves the old bytes, and exits 2. `--skip-old-files` is the quiet version: it skips existing paths and still exits 0. `--keep-newer-files` replaces a file only when the archive copy is newer, prints a note when it skips, and exits 0.
-
-```sh
-tar -k -xf archive.tar
-```
-
-```sh
-tar --skip-old-files -xf archive.tar
-```
-
-Use `-k` when an existing file should fail the run. Use `--skip-old-files` when you want whatever is already on disk to win, with a successful status. `--keep-newer-files` is the GNU choice when time should decide. People pass `-o` for "overwrite." On extract, `-o` means `--no-same-owner`. Overwrite was already the default, and `-o` does not turn it off.
-
-## Strip leading directories while extracting
-Also asked as: tar --strip-components; strip-components=1; remove the top directory; drop a path prefix; short names were skipped
-`--strip-components` takes a count of leading path parts to drop from each member as it is extracted. `--strip-components=1` turns `dir/sub/file` into `sub/file`. It does not look up a directory by name. It always removes that many slash-separated pieces. Pair it with `-xf` and the archive name.
+## Drop leading directories on extract
+Also asked as: tar --strip-components; strip components; remove the top folder; extract without the prefix; --strip-components=1
+`--strip-components=1` removes one leading path element from each member name before writing it. A member `src/file` becomes `file`. A member `src/sub/b` becomes `sub/b`. It does not rename the archive's top directory as a special case. It strips that many components from every name. This is GNU. macOS bsdtar has the same long option on current systems.
 
 ```sh
 tar -xf archive.tar --strip-components=1
 ```
 
-A member that does not have that many components is skipped, with no error and exit 0. Stripping 1 from an archive that also contains a top-level `README` drops `README` and keeps only what lived under the first directory. People use this to mean "extract the one top folder's contents" and then lose every file stored beside that folder. The count has to match the paths `tar -tf` shows, including a `./` prefix if that is what was stored.
+People strip one component from an archive that has no common top directory, and `file` and `other/file` both lose their first element, which may collide. List first. A strip count larger than a member's depth skips that member. It is not extracted. People also expect strip to create the destination directory. It does not. Combine it with `-C` and a directory you created.
 
-## Store the file a symlink points at
-Also asked as: tar -h; tar --dereference; follow symlinks; archive the link target; macOS tar -L; GNU -L is tape length
-By default tar stores a symlink as a symlink. The archive holds the link text, not the target's bytes. `-h` (`--dereference`) reads the target and stores a regular file under the link's name. Directory symlinks are walked, so the walk can leave the tree you named. GNU `-h` is this switch. It is not help.
-
-```sh
-tar -chf archive.tar -- dir
-```
-
-On macOS, following links is `-L`, not `-h`. On GNU tar, `-L` is `--tape-length` and takes a number. Copying a macOS `-L` into GNU tar does not follow links. It sets a tape size and then misreads the next argument. A broken symlink fails under `-h` because there is no target to read. Without `-h` it is stored as a link and extract recreates the link, not the file it used to point at.
-
-## Send an archive through a pipe
-Also asked as: tar -f -; tar to stdout; tar from stdin; pipe tar to tar; tar -c without -f waits; tar pipe gzip
-`-f -` means stdout when you create and stdin when you extract or list. The archive bytes are the stream. Other commands can compress or move them. When the archive is the pipe, `-v` prints names on stderr so it does not corrupt the bytes. GNU tar also treats a missing `-f` as `-f -`.
+## Extract one file
+Also asked as: tar extract one file; tar -xf archive file; pull a single member; extract a path from a tarball
+Name the member after the archive. The name is the name `-t` printed, not a glob, unless you pass `--wildcards`. A directory member extracts that directory and, on a normal extract, the files under it that are also in the archive. Compression does not change the form. The member is written to the current directory, or to `-C`.
 
 ```sh
-tar -cf - -- dir | tar -xf - -C dir
+tar -xf archive.tar -- file
 ```
 
-`tar -x` or `tar -t` with no `-f` and no pipe sits waiting for an archive on the terminal. It is not listing the current directory. People add `-v` on a pipe and then, on a file archive, wonder why names and progress mixed. Names go to stdout only when the archive itself is a real file. Prefer an explicit `-f -` so the next reader can see where the bytes are supposed to come from.
+People pass a path that looks right and get nothing, because the stored name is `./file` or `src/file`. Copy the name from `-t`. A wildcard without `--wildcards` is a literal member name and matches nothing. With `--wildcards`, `*.txt` is a pattern, and the shell will also expand it unless you quote it. Quote the pattern. `--no-anchored` lets a pattern match in any directory. The default anchor is the start of the member name.
 
-## Add files to an archive that already exists
-Also asked as: tar -r; tar --append; tar -u; tar --update; Cannot update compressed archives; add a file to a tar; member stored twice
-`-r` appends the named paths to the end of an existing uncompressed archive. `-u` appends a path only when the disk copy is newer than the member already stored. Neither rewrites earlier members. `tar -tf` shows the name twice, and a later extract uses the last copy. Both refuse a compressed archive with "Cannot update compressed archives" and exit 2.
+## See a verbose listing
+Also asked as: tar -tvf; verbose tar; tar tvf; long listing; permissions in the archive
+`-v` on a list prints one line per member, like `ls -l`, with mode, owner, size, time, and name. `-vv` on create or extract prints the name and the attribute details. Verbose goes to stdout on a list. On create and extract it goes to stdout as well, which can mix with a pipe. `-f` still names the archive.
+
+```sh
+tar -tvf archive.tar
+```
+
+People pipe `-tvf` into `grep` and also have a locale date format that splits into extra fields. The name is the last field only when the name has no spaces. A name with spaces breaks a column cut. Use `-t` without `-v` if you only need names. The owner in the listing is the stored owner. It is not a promise about the extracted file unless you preserve ownership.
+
+## Append files to an archive
+Also asked as: tar -r; tar --append; add a file to a tar; tar -u update; append to tarball
+`-r` appends named files to an uncompressed archive. `-u` appends only files that are newer than the copy already in the archive. Neither works on a compressed archive. Gzip is not a format you can append to. Neither deletes a member. An old member of the same name stays, and the new one is added after it. Extract uses the last one.
 
 ```sh
 tar -rf archive.tar -- file
 ```
 
-```sh
-tar -uf archive.tar -- file
-```
+People `-r` onto a `.tar.gz` and get an error. Create a new archive if it is compressed. People also expect `-u` to replace the old member. The archive can contain two members with the same name. `-t` shows both. Extract writes the last. `--delete` removes a member, and GNU tar refuses it on a tape, which is the old constraint. On a file it rewrites the archive.
 
-Use `-r` to force another copy in. Use `-u` to add only newer files. For a `.tar.gz`, `.tar.bz2`, or `.tar.xz`, recreate the archive with `-c` and the compressor. There is no in-place append once the stream is compressed. BusyBox hits the same wall. `-u` does not delete the stale member it replaced in spirit. The archive only grows.
-
-## Delete a member from an archive
-Also asked as: tar --delete; remove a file from a tar; delete a member; edit a tarball; cannot delete from tar.gz
-`--delete` removes a member from an uncompressed archive in place. `-f` names the archive, and the member name must match a stored path. GNU tar can do this on a seekable file. It will not do it on a compressed archive. It reports that it cannot update compressed archives and exits 2. This option is GNU. It is not a tape operation.
+## Exclude names
+Also asked as: tar --exclude; skip a directory; exclude node_modules; tar exclude pattern; do not archive a path
+`--exclude` takes a pattern. A matching file or directory is not stored. You can repeat the flag. The pattern is a tar pattern, not a full regular expression. `*.o` matches in any directory. A leading `./` in the stored name can surprise a pattern that does not account for it. `--exclude-from` reads patterns from a file.
 
 ```sh
-tar --delete -f archive.tar -- 'path'
+tar -cf archive.tar --exclude='pattern' -- file
 ```
 
-People run it against `archive.tar.gz` and assume the failure means the path was wrong. The path can be right and the format still rejects the edit. Recreate a compressed archive without that path, using `--exclude` or by extracting and packing again. `--delete` does not take a glob unless you also ask for wildcards the way extract does. A wrong member name leaves the archive unchanged and fails.
+People exclude `dir` and still see `./dir` stored, because the operand was `.` and the stored prefix differs. Test with `-t`. An exclude does not remove a member already in the archive. It only affects this create. Quote the pattern or the shell expands it. `--exclude` on extract skips matching members. The same flag, the other direction.
 
-## Compare an archive with the files on disk
-Also asked as: tar -d; tar --compare; tar --diff; archive differs from disk; tar exit status 1; check members against the tree
-`-d` reads the archive and compares each member with the path of the same name in the current directory. Matching files print nothing and the status is 0. A difference prints a line such as `file: Size differs` and the status is 1. That 1 does not mean the archive file is corrupt. It means disk and archive disagree. `-f` names the archive.
+## Change directory before adding files
+Also asked as: tar -C create; archive the contents not the folder; tar from another directory; -C and create
+`-C dir` changes directory before the following operands are read. `tar -cf archive.tar -C dir .` stores what is inside `dir`, under names starting at `.`, not under `dir/`. A later `-C` switches again. This is how you build an archive whose members are not prefixed by the source folder.
 
 ```sh
-tar -df archive.tar
+tar -cf archive.tar -C dir .
 ```
 
-The comparison uses stored names, so you run it from the directory where `dir/file` still means what it meant when you created the archive. A missing disk file is a difference. `-d` does not extract, and it does not checksum the gzip wrapper. To see whether a compressed stream can be read at all, `tar -tf archive.tar.gz` has to walk it without error. Exit 2 on that run is a broken archive. Exit 1 on `-d` is a content mismatch.
+People `tar -cf archive.tar dir` and every member starts with `dir/`. Extract then creates `dir`. The `-C` form is the one that does not. `.` is an operand. It means the directory you just entered. It is not optional. Forgetting it stores nothing from that directory. `-C` on create does not imply `-C` on extract. The reader still extracts into the current directory.
 
-## Handle "file changed as we read it"
-Also asked as: file changed as we read it; tar exit code 1 while creating; tar --warning=no-file-changed; file changed during backup; live file was archived
-While `-c` is reading a file, tar notices if the file's size or modification time changes. It finishes the archive, prints `file changed as we read it` on stderr, and exits 1. The member can be a torn snapshot of a file that was being written, not a clean copy of either version. Log files and databases do this. Exit 1 here is not exit 2. The archive exists, and that member is the part you should not trust.
+## Preserve permissions and owners
+Also asked as: tar -p; tar --preserve-permissions; same owner; extract as root; --no-same-owner
+`-p` on extract preserves permissions. GNU tar does this by default when you are root. `--same-owner` restores the stored user and group, which usually requires root. `--no-same-owner` makes the extracted files yours. Times are restored by default. `--touch` gives them the current time instead.
 
 ```sh
-tar --warning=no-file-changed -cf archive.tar -- dir
+tar -xpf archive.tar
 ```
 
-`--warning=no-file-changed` hides the message on GNU tar. On this tar it does not turn the status back into 0. Scripts that treat any non-zero status as failure still fail. People delete the warning and ship the archive. Copy the data to a snapshot or stop the writer first if that member has to be consistent. The same exit 1 applies to `-r` and `-u` when a file changes during the read.
+People extract as a normal user and expect to become the stored owner. The kernel will not allow it. The file is owned by you. People extract as root and spread a tarball's numeric ids onto a machine where those ids are different people. `--no-same-owner` is the guard. Permissions still come across with `-p`. A setuid bit in a tarball is a reason to list before you extract as root.
 
-## Archive hidden files
-Also asked as: tar dotfiles; include hidden files; star skips names starting with a dot; tar -cf . ; file is the archive not dumped
-`*` is expanded by the shell, and it does not include names that start with a dot. `tar -cf archive.tar *` packs the visible names in the current directory and silently omits `.hidden`. Naming a directory does include dotfiles underneath it, because tar itself walks the directory and does not use the shell glob.
-
-```sh
-tar -cf archive.tar -- dir
-```
-
-`tar -cf archive.tar .` also includes dotfiles, and it stores a `./` prefix. If the archive is being created inside that same directory, tar prints `file is the archive; not dumped` and skips the archive file so it does not pack itself. People add `--exclude='.*'` thinking it means "hidden files only at the top" and instead drop every dotfile at every level. Quote any glob you pass. Prefer naming `dir` when the dotfiles that matter live inside it.
-
-## Keep absolute paths out of the archive
-Also asked as: Removing leading '/' from member names; tar -P; tar --absolute-names; strip leading slash; absolute paths in a tarball
-If you name `/etc/hostname` as a source, GNU tar stores `etc/hostname` and prints `Removing leading '/' from member names` on stderr. Extract then writes a relative path, not `/etc/hostname`. That is the safe default. `-P` (`--absolute-names`) keeps the leading slash in the member name.
+## Follow symlinks, or store the links
+Also asked as: tar -h; tar --dereference; symlink in a tarball; store the link; tar a symlink
+By default `tar` stores a symlink as a symlink. The target is not copied in. `-h` stores the target's content instead, as a regular file. A dangling symlink fails under `-h` and is stored as a link without it. Hard links are stored as links when the other name is also in the archive.
 
 ```sh
 tar -cf archive.tar -- file
 ```
 
 ```sh
-tar -P -cf archive.tar -- /absolute/path
+tar -chf archive.tar -- file
 ```
 
-Use the first form. Use `-P` only when extract must recreate those absolute paths on purpose. Extracting an archive built with `-P` writes to those absolute locations, which as root overwrites whatever is already there. People see the "Removing leading" line and think the run failed. It is a notice. The status is still 0 if nothing else went wrong. The stored name is the relative one `tar -tf` prints.
+Use the first when the link is the thing you are archiving. Use the second when you want the bytes. People extract an archive of symlinks onto another machine and the links dangle, because the targets were never members. `-h` at create time is how you snap the targets. `-h` at extract time is a different request and is not the usual flag. Check `-tvf` for the `l` type before you assume the bytes are in the archive.
 
-## Preserve permissions and owners
-Also asked as: tar -p; preserve permissions; tar --same-owner; extract as yourself; umask on extract; tar -o is not overwrite
-Tar records the mode, owner, and group it sees at create time. On extract, root restores owner and mode by default. A normal user owns the new files and, unless you pass `-p`, the mode is masked by umask. `-p` (`--preserve-permissions`, also `--same-permissions`) asks for the mode bits from the archive. `--same-owner` asks for the stored owner, which a normal user cannot grant, so the files still end up owned by you.
+## Compress with xz or bzip2, or pick from the name
+Also asked as: tar -J; tar -j; tar -a; xz tarball; auto compress; tar.bz2
+`-J` is xz. `-j` is bzip2. `-z` is gzip. `-a` looks at the archive name and chooses. `archive.tar.xz` gets xz. `archive.tar.bz2` gets bzip2. On extract, GNU tar detects the compression regardless of the flag. You can `tar -xf archive.tar.xz` with no `-J`.
 
 ```sh
-tar -xp -f archive.tar
+tar -cJf archive.tar.xz -- file
 ```
 
-People use `-o` to mean overwrite or "preserve everything." On extract, `-o` means `--no-same-owner`. On create, `-o` means the ancient V7 archive format. Neither is `-p`. Permissions on extract also do not change the fact that an existing file's bytes are replaced by default. Mode and owner are a separate question from whether the file is overwritten.
+People rename `archive.tar.gz` to `archive.tar.xz` and expect extract to cope. The bytes are still gzip. The name lied. Detection uses the bytes. Create uses the flag or, with `-a`, the name. A missing `xz` binary fails the create. The archive is not left half-written in a useful way. Check `tar -tf` after a long create if the job might have been killed.
 
-## Put the archive name right after -f
-Also asked as: tar -f argument order; tar cfz versus czf; -f ate the flags; tar -cfz wrong name; clustered short options; tar czf syntax
-In a short cluster, `-f` consumes the rest of the cluster as its argument if anything follows it, otherwise the next word. `tar -czf archive.tar.gz -- dir` is right because `f` is last and `archive.tar.gz` is the next word. `tar -cfz archive.tar.gz -- dir` creates an archive named `z` and then tries to store a file named `archive.tar.gz`. The same rule applies to the old spelling without a dash.
+## Read the list of files from a file
+Also asked as: tar -T; files-from; tar a list; null separated tar; -T -
+`-T` reads member names from a file, one per line. `-T -` reads standard input. `--null` reads NUL-separated names, which is the safe pair with `find -print0`. The names are paths to store, relative to the current directory or to a `-C`. This is how you archive a generated list without a shell glob.
 
 ```sh
-tar -czf archive.tar.gz -- dir
+tar -cf archive.tar -T file
 ```
+
+People put archive member names in the list and also expect exclude logic to apply. Excludes still apply. A line with a leading `-` is a path if you used `-T`, but a path that starts with a dash can still be read as a flag in other positions. `--add-file` is the single-file form of that escape. A missing path in the list is a warning and a non-zero status. The rest are still archived.
+
+## Extract and keep existing files
+Also asked as: tar -k; tar --keep-old-files; do not overwrite; extract without clobber; keep existing
+`-k` does not replace a file that already exists. The member is skipped. Directories are not a conflict in the same way. A file in the way of a directory member is still an error. `-k` is the opposite of the default, which overwrites. There is no prompt.
 
 ```sh
-tar -c -z -f archive.tar.gz -- dir
+tar -xkf archive.tar
 ```
 
-Use the cluster when `f` is the last letter. Use the split form whenever you are no longer sure which letter takes an argument. `-C` has the same appetite. `tar -xf -C dir archive.tar` opens an archive called `-C`. Flags that do not take arguments (`c`, `x`, `t`, `v`, `z`, `j`, `J`, `p`, `h`, `k`) can sit in any order inside the cluster. `f` cannot.
+People pass `-k` and think a same-named file was updated. It was left as it was. The status can still be non-zero if any file was skipped this way, on GNU tar. A directory you expected to refresh keeps its extra files. `tar` does not delete those. It only decides whether to write members. `--skip-old-files` is the GNU flag that skips without the warning noise of `-k`.
 
-## Extract into a fresh directory
-Also asked as: tar --one-top-level; tarball of loose files; do not spill into the current directory; GNU one-top-level; extract under a new folder
-`--one-top-level` is GNU. On extract it creates one new directory and puts every member under it, so a tarball of loose files does not fill the current directory. With no name, the directory is taken from the archive name (`a.tar` becomes `a`). `--one-top-level=dir` uses `dir` instead. Combine it with `-xf`.
+## Make the archive's top directory
+Also asked as: tar --one-top-level; extract into a new folder; wrap the extract; avoid scattering files; GNU one-top-level
+`--one-top-level` extracts into a single new directory. The directory name comes from the archive name, with the compression suffix removed, unless you pass `--one-top-level=dir`. This is the guard against a tarball that has no common top directory and would spill into the current directory. It is GNU.
 
 ```sh
-tar -xf archive.tar --one-top-level=dir
+tar -xf archive.tar --one-top-level
 ```
 
-It always adds that directory, even when the archive already has a single top-level folder. You then get `dir/src/file` rather than `src/file`. It does not strip components. It does not refuse absolute members by itself. Those are still stripped unless the archive was built with `-P`. BusyBox and traditional tar do not have this flag. The portable version of the same idea is to `mkdir dir` and extract with `-C dir`.
+People extract a tarball from a stranger and files land next to their own. `--one-top-level` puts them in a new folder. It does not help if you also pass a `-C` you did not mean. The new directory is created beside the current directory's files, not inside the archive. An archive that already has one top directory ends up with two levels. That is the cost of the guard. List first if you care.
 
+## Compare the archive with the files
+Also asked as: tar -d; tar --diff; tar --compare; verify an archive; does the tar match
+`-d` compares the archive with the files on disk. It reports members that differ in size, mode, or time, and members that are missing on disk. It does not extract. It does not modify the archive. A compressed archive works. The names are the stored names, so you must be in the directory where those paths make sense, or use `-C`.
+
+```sh
+tar -df archive.tar
+```
+
+People use `-d` as a checksum of the archive file. It is not. It compares members with the filesystem. A matching compare prints nothing and exits 0. A difference prints a line and exits non-zero. Content that differs with the same size and time can slip past a metadata compare. For bytes, extract to a scratch directory and diff, or use a format that stores checksums you can recompute.
+
+## What a failed tar means
+Also asked as: tar exit code; tar exit status; tar failed; unexpected EOF; file changed as we read it
+Status 0 is a clean run. Status 1 is a warning. A file changed while `tar` was reading it, or a compare found a difference. Status 2 is fatal. A missing archive, a bad flag, a corrupt compressed stream, and an unreadable file you did not ignore are fatal. GNU tar prints the reason on stderr. `-v` does not change the status.
+
+```sh
+tar -xf archive.tar
+```
+
+People treat status 1 as success because files appeared. A file that changed during create may be torn. `--warning=no-file-changed` turns that particular warning off, and it is GNU. A truncated download fails at extract with an unexpected EOF and status 2. The partial tree it wrote is not a successful extract. Check the status before you delete the archive. `set -e` aborts a script on status 1 unless you handled it. That is usually what you want.
