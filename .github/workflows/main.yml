@@ -22,10 +22,6 @@ jobs:
         with:
           python-version: '3.11' # Change to your preferred version
 
-      # Step 3: Install your project as a tool globally on the runner
-      - name: Install faq
-        run: uv tool install .
-
-      # Step 4: Run your tool using your usual terminal name
-      - name: Execute faq check
-        run: faq --check
+      # Step 3: Run check
+      - name: Run faq check directly in workspace
+        run: uv run faq --check
