@@ -22,6 +22,12 @@ jobs:
         with:
           python-version: '3.11' # Change to your preferred version
 
-      # Step 3: Run check
+      # Step 3: Create the directory and copy the chapter files
+      - name: Install the chapter files
+        run: |
+          mkdir -p ~/.local/share/faq
+          cp share/*.md ~/.local/share/faq/
+
+      # Step 4: Run check
       - name: Run faq check directly in workspace
         run: uv run faq --check
