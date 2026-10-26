@@ -277,11 +277,15 @@ printf '%s\n' 'pattern' >&2
 People `echo` the error and then pipe the script's output into another command, and the error goes down the pipe with the data. The redirect has to be on the `printf`, or on a group `{ printf '%s\n' 'pattern' >&2; }`. `>&2` is not `2>&1`. One sends this command to stderr. The other sends stderr to stdout. A status is still separate. Printing an error does not fail the script. `exit 1` does.
 
 ## Change the prompt
-Also asked as: PS1; change bash prompt; customize prompt; export PS1; prompt with user and directory; bash prompt
-`PS1` is the interactive prompt. A non-interactive script does not print it. Set it in `~/.bashrc`, which interactive bash reads. Single quotes keep the special escapes for later. `\u` is the user. `\h` is the hostname. `\w` is the working directory. `\$` is `$` for a user and `#` for root. `\n` is a newline. Double quotes expand variables once, when you set it, which is usually too early.
+Also asked as: PS1; change bash prompt; change zsh prompt; customize prompt; export PS1; prompt with user and directory
+`PS1` is the interactive prompt. A non-interactive script does not print it. Bash and zsh do not share the escape syntax. In bash, backslash escapes are special and `%` is an ordinary character. In zsh, percent escapes are special and a literal percent is `%%`. Set the bash form in `~/.bashrc`. Set the zsh form in `~/.zshrc`. Single quotes keep the escapes for later. Double quotes expand once, at assignment time, which is usually too early.
 
 ```sh
 PS1='\u@\h:\w\$ '
 ```
 
-People set `PS1` in `~/.bash_profile` and a new terminal is unchanged. Interactive non-login shells read `~/.bashrc`. People also put a command substitution in double quotes and the output is frozen at assignment time. Use single quotes, or `PROMPT_COMMAND`, which runs before each prompt. Color codes that are not wrapped in `\[ \]` make the cursor lie about the line length. A prompt does not change `set -e` or the status of the last command. `$?` in the prompt is the status of the previous command, which is what people want when they embed it.
+```sh
+PS1='%n@%m:%~%# '
+```
+
+Use the first in bash. `\u` is the user. `\h` is the hostname. `\w` is the directory. `\$` is `$` for a user and `#` for root. Use the second in zsh. `%n` is the user. `%m` is the hostname. `%~` is the directory. `%#` is `#` for root and `%` for a user. `%%` is how zsh prints a literal percent. People set `PS1` in `~/.bash_profile` and a new terminal is unchanged. Interactive non-login bash reads `~/.bashrc`. Color codes that are not wrapped in `\[ \]` in bash, or `%{ %}` in zsh, make the cursor lie about the line length. A prompt does not change `set -e`. `$?` in the prompt is the status of the previous command.
