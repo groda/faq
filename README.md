@@ -1,5 +1,7 @@
 # faq
 
+[![Faq Check](https://github.com/groda/faq/actions/workflows/main.yml/badge.svg)](https://github.com/groda/faq/actions/workflows/main.yml)
+
 Years ago *UNIX for the Impatient*, by Paul W. Abrahams and Bruce R. Larson, lived on my desk. I was a beginner, and it was the book I reached for when I did not want to fight the manual.
 
 A lot has happened since. We all went through the "just Google it, there will be a Stack Overflow answer" years. Now the help sits in the editor: copilots, local models, and the rest of that sorcery. Useful, and also a strange amount of machinery when the question is "which `grep` flag prints the lines around a match?"
