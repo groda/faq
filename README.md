@@ -1,3 +1,5 @@
+![faq demo](faq-grep.gif)
+
 # faq
 
 [![Faq Check](https://github.com/groda/faq/actions/workflows/main.yml/badge.svg)](https://github.com/groda/faq/actions/workflows/main.yml)
