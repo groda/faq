@@ -28,6 +28,15 @@ while IFS= read -r line; do
 done < file
 ```
 
+To skip empty lines:
+ 
+```sh
+while IFS= read -r line; do
+  [ "${#line}" -gt 0 ] || continue
+  printf '%s\n' "$line"
+done < file
+```
+
 A pipe into `while read` is the form that loses the last line when the producer does not end with a newline, and it loses variables after the loop unless `lastpipe` is set. A line is not a filename if the file can contain a newline in a name. Use `find -print0` and `read -d ''` for names. `read` without `-r` eats `\`.
 
 ## Send errors to /dev/null
