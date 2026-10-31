@@ -336,9 +336,7 @@ def check_all() -> None:
     failed = False
     seen: set[Path] = set()
     for directory in search_dirs():
-        if not directory.is_dir():
-            continue
-        for path in sorted(directory.glob("*.md")):
+        for path in chapter_files(directory):
             if path in seen or not NAME_RE.match(path.stem):
                 continue
             seen.add(path)
