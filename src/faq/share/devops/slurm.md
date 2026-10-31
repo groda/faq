@@ -219,3 +219,14 @@ sbatch -- script
 ```
 
 People treat a printed job id as success of the work. It is success of the submit. Check `sacct` for `COMPLETED`. A `TIMEOUT` is your `--time`. An `OUT_OF_MEMORY` is your `--mem`. A `FAILED` with a non-zero exit is your script, and the output file usually has the traceback. A job that stays `PD` is not a failure. Read the reason. Under `set -e`, a rejected `sbatch` aborts a driver script. A `--wait` that returns the job's failure also aborts, which is what you want before the next stage reads the output.
+
+
+## Reserve nodes and get a shell
+Also asked as: salloc; allocate nodes; interactive allocation; salloc bash; hold nodes for several commands
+`salloc` reserves resources and starts a shell on the login node with the allocation in the environment. From that shell you `srun` steps onto the reserved nodes. It does not, by itself, put your shell on a compute node. `srun --pty bash` does that. `salloc` is the form for several commands against one reservation. The time limit still applies. When it hits, the allocation is revoked.
+
+```sh
+salloc --time=1:00:00 --mem=4G
+```
+
+People `salloc` and then run the heavy command in that shell, on the login node. The allocation is held and unused. The work belongs under `srun`. People also expect `salloc` to print a job script. It is interactive. A batch script is `sbatch`. A dropped SSH ends the shell and, on most sites, the allocation. `tmux` on the login node is how you keep it across a disconnect. `squeue` shows the allocation. `scancel` of its job id releases the nodes.
