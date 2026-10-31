@@ -110,16 +110,6 @@ sbatch --dependency=afterok:"$id" -- script
 
 People write `afterok` and the next job never starts, because the first failed. That is the flag working. Use `afterany` if the second job is a cleanup that must run. People also depend on an array id and the behavior differs between "whole array" and "each task." Pass the id `sbatch` printed. A dependency on a job that was cancelled is a failed dependency. The waiting job is cancelled too on many sites. Read `squeue` for the reason before you assume the scheduler lost it.
 
-## Use a job array
-Also asked as: sbatch --array; #SBATCH --array; job array; SLURM_ARRAY_TASK_ID; many similar jobs; array task id; throttle array
-`--array=0-9` submits one array of ten tasks. Each task runs the same script with a different `SLURM_ARRAY_TASK_ID`. That variable is how the script picks its input, a row, a shard, or a file. `%4` caps how many run at once: `--array=0-99%4`. One `scancel` of the array id cancels every task. `scancel 12345_3` cancels only task 3. Output files should include `%a` for the task id and `%A` for the parent id, or every task writes the same file.
-
-```sh
-sbatch --array=0-9 -- script
-```
-
-People write one `-o` file and the tasks overwrite each other. Use `%A-%a` in the name. People also loop inside one ordinary job instead of an array, and a single failure kills the whole loop. An array isolates tasks. One task that overruns memory is killed alone. The others keep going. `squeue` shows the array as one line unless you pass `-r`, which expands the tasks. A task that cannot map its id to an input should exit non-zero rather than run the wrong work. Check `sacct -j id` for the per-task state. `COMPLETED` on the parent does not mean every task succeeded. Look at the task lines.
-
 ## Run one command on a node
 Also asked as: srun; srun command; allocate and run; slurm srun; interactive command
 `srun command` asks for resources and runs the command on a node. It is the foreground form. It is also how you run a step inside an existing allocation. Flags for resources come before the command. Output comes back to your terminal. A long `srun` holds the session, like `--wait`.
@@ -158,7 +148,7 @@ Also asked as: --array; job array; #SBATCH --array; SLURM_ARRAY_TASK_ID; many si
 sbatch --array=0-9 -- script
 ```
 
-People write one output file and every task overwrites it. Use `%A` for the array id and `%a` for the task. People also loop inside one job instead of an array, and a single task failure kills the loop. An array isolates tasks. A task that overruns memory is killed alone. The others continue. `squeue` shows the array as one line or as tasks, depending on flags. `-r` expands it.
+People write one `-o` file and the tasks overwrite each other. Use `%A-%a` in the name. People also loop inside one ordinary job instead of an array, and a single failure kills the whole loop. An array isolates tasks. One task that overruns memory is killed alone. The others keep going. `squeue` shows the array as one line unless you pass `-r`, which expands the tasks. A task that cannot map its id to an input should exit non-zero rather than run the wrong work. Check `sacct -j id` for the per-task state. `COMPLETED` on the parent does not mean every task succeeded. Look at the task lines.
 
 ## Load the environment the job needs
 Also asked as: module load in sbatch; batch environment; path in job; conda in slurm; job cannot find command
