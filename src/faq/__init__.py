@@ -96,27 +96,33 @@ def search_dirs() -> list[Path]:
     return dirs
 
 
+def chapter_files(directory: Path) -> list[Path]:
+    """Loose pages first, then one theme folder down."""
+    if not directory.is_dir():
+        return []
+    loose = sorted(p for p in directory.glob("*.md") if p.is_file())
+    themed = sorted(p for p in directory.glob("*/*.md") if p.is_file())
+    return loose + themed
+
+
 def find_page(command: str) -> Path | None:
     if not NAME_RE.match(command):
         die(f"not a command name: {command!r}")
     name = command + ".md"
     for directory in search_dirs():
-        path = directory / name
-        if path.is_file():
-            return path
+        for path in chapter_files(directory):
+            if path.name == name:
+                return path
     return None
 
 
 def known_commands() -> list[str]:
     found: dict[str, None] = {}
     for directory in search_dirs():
-        if not directory.is_dir():
-            continue
-        for path in sorted(directory.glob("*.md")):
+        for path in chapter_files(directory):
             if NAME_RE.match(path.stem) and path.stem not in found:
                 found[path.stem] = None
     return list(found)
-
 
 def chapter_completer(prefix, parsed_args, **kwargs):
     return [name for name in known_commands() if name.startswith(prefix)]
