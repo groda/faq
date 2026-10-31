@@ -16,7 +16,7 @@ There are already cheatsheet tools. [tldr](https://tldr.sh/) is the short commun
 
 `faq grep` takes the whole terminal. The questions are a list on the left. The article you are on stays open on the right. The prompt is `ask>`.
 
-You do not submit a search. You type, and the list narrows to the questions that fit. Up and down move through what is left, and the article follows. Esc closes the book and puts you back at the shell. Words after the command, as in `faq grep lines around a match`, start you already narrowed.
+You do not submit a search. You type, and the list narrows to the questions that fit. Up and down move through what is left, and the article follows. Esc closes the book and puts you back at the shell. Words after the command, as in `faq grep lines around a match`, start you already narrowed. The page is not there to be copied. You read it, and then you type the command yourself.
 
 The match is against the question and the other ways people ask it, not against every word of the lesson. So "lines around a match", "context", and "grep -C" land on the same page.
 
