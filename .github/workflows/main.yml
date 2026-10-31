@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'share/**'
+      - '.github/workflows/main.yml'
       
 jobs:
   faq-check:
