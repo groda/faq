@@ -50,7 +50,7 @@ uv tool install .          # or: uv tool install --force .
 
 # Install the chapter files
 mkdir -p ~/.local/share/faq
-cp share/*.md ~/.local/share/faq/
+cp -a share/. ~/.local/share/faq/
 ```
 
 ## Shell completion (optional)
