@@ -26,7 +26,7 @@ jobs:
       - name: Install the chapter files
         run: |
           mkdir -p ~/.local/share/faq
-          cp share/*.md ~/.local/share/faq/
+          cp -a share/. ~/.local/share/faq/
 
       # Step 4: Run check
       - name: Run faq check directly in workspace
