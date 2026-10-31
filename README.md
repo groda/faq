@@ -27,7 +27,8 @@ If [glow](https://github.com/charmbracelet/glow) is installed, the article on th
 - One chapter per command, written as the questions people actually ask.
 - Each answer is short enough to learn from: what is going on, the command, and the catch.
 - An "Also asked as" line on every question, so the five ways of asking it all find the same page.
-- Nothing is fetched and no model runs when you ask. The pages were written ahead of time. Search is [fzf](https://github.com/junegunn/fzf).
+  Stack Overflow would call four of those duplicates and delete them. That throws away the wording a newcomer would have typed. The other phrasings are not extra pages. They are the index.
+- Nothing is fetched, and no model runs. No GPU either. The pages are already on the machine, the way the book was on the desk. Search is [fzf](https://github.com/junegunn/fzf).
 
 The chapters are ordinary markdown. Add a command by adding a file. Change a recipe by editing it. Your copy wins, in this order:
 
