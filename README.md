@@ -37,21 +37,16 @@ The chapters are ordinary markdown. Add a command by adding a file. Change a rec
 
 ## Install
 
-You need  [uv](https://docs.astral.sh/uv/), and `fzf`, and optionally `glow`.
-
+You need [uv](https://docs.astral.sh/uv/) and `fzf`. `glow` is optional.
 
 ```sh
-# Clone the repo
-git clone https://github.com/groda/faq
-cd faq
-
-# Install the faq command (re-run with --force to upgrade)
-uv tool install .          # or: uv tool install --force .
-
-# Install the chapter files
-mkdir -p ~/.local/share/faq
-cp -a share/. ~/.local/share/faq/
+uv tool install git+https://github.com/groda/faq
 ```
+
+## Upgrade
+
+Upgrade with `uv tool upgrade faq`. A page you put in `~/.local/share/faq/` overrides the one that shipped.
+
 
 ## Shell completion (optional)
 

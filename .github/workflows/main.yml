@@ -1,35 +1,21 @@
 name: Faq Check
-
 on:
   push:
     branches:
       - main
     paths:
-      - 'share/**'
       - 'src/**'
       - '.github/workflows/main.yml'
-      
 jobs:
   faq-check:
     runs-on: ubuntu-latest
-
     steps:
       # Step 1: Clone the repository
-      - name: Check out repository
-        uses: actions/checkout@v7.0.1
-
+      - uses: actions/checkout@v7.0.1
       # Step 2: Install and configure uv (and Python automatically)
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v10.3.2
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
           python-version: '3.11' # Change to your preferred version
+      # Step 3: Run check
+      - run: uv run faq --check
 
-      # Step 3: Create the directory and copy the chapter files
-      - name: Install the chapter files
-        run: |
-          mkdir -p ~/.local/share/faq
-          cp -a share/. ~/.local/share/faq/
-
-      # Step 4: Run check
-      - name: Run faq check directly in workspace
-        run: uv run faq --check
