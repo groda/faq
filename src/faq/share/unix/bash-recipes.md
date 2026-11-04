@@ -298,3 +298,20 @@ PS1='%n@%m:%~%# '
 ```
 
 Use the first in bash. `\u` is the user. `\h` is the hostname. `\w` is the directory. `\$` is `$` for a user and `#` for root. Use the second in zsh. `%n` is the user. `%m` is the hostname. `%~` is the directory. `%#` is `#` for root and `%` for a user. `%%` is how zsh prints a literal percent. People set `PS1` in `~/.bash_profile` and a new terminal is unchanged. Interactive non-login bash reads `~/.bashrc`. Color codes that are not wrapped in `\[ \]` in bash, or `%{ %}` in zsh, make the cursor lie about the line length. A prompt does not change `set -e`. `$?` in the prompt is the status of the previous command.
+## Take the first characters, or the rest
+Also asked as: ${var:0:2}; substring; first two characters; bash offset; rest of the string; ${var:2}; from position length
+`${file:0:2}` is the first two characters. The first number is the start, counting from 0. The second is the length. `${file:2}` is the rest, from the third character to the end. You do not write a trailing colon. `${file:2:}` is a syntax error. Omit the length and the expansion runs to the end. `${file:2:5}` is five characters starting at offset 2, which is the third character. A short string returns what it has. The original variable is unchanged.
+
+```sh
+printf '%s\n' "${file:0:2}"
+```
+
+```sh
+printf '%s\n' "${file:2}"
+```
+
+```sh
+printf '%s\n' "${file:2:5}"
+```
+
+Use the first for a prefix of a known length. Use the second for everything after it. Use the third for a window in the middle. People write `${file:2:}` and bash complains. The empty length is not "to the end." The missing length is. People also count from 1. The offset is 0-based, so the first character is 0 and the third is 2. A negative offset counts from the end on bash 4 and later. `${file: -2}` is the last two characters. The space after the colon matters, or bash reads `:-` as a default-value expansion. This is substring syntax, not a pattern. `${file#??}` also drops two characters, as a glob, and is the form that works in a strict POSIX shell.
