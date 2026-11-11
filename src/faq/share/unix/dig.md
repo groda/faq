@@ -36,15 +36,15 @@ dig -- name TXT
 
 People ask for `A`, get `NOERROR` with no answer, and conclude the name is missing. The name can still have `AAAA` or `MX`. `NXDOMAIN` is the status that means absent. An empty answer means the type is absent. `ANY` is not a shortcut. Many servers refuse it. Ask for the type you mean. The type is case-insensitive. It is not a flag, so `dig -MX` is a usage error.
 
-## Print only the answers
-Also asked as: dig +short; short output; only the address; dig script output; no comments
-`+short` prints the answer data and nothing else. An `A` query prints addresses, one per line. An `MX` query prints the preference and the hostname. An empty answer prints nothing and still exits 0 if the server replied. `+short` hides the status, so `NXDOMAIN` and an empty `NOERROR` look the same.
+## Print only the answers with +short
+Also asked as: dig +short; short output; only the address; dig script output; no comments; dig +short A
+`+short` prints the answer data and nothing else. An `A` query prints addresses, one per line. An `MX` query prints the preference and the hostname. An empty answer prints nothing and still exits 0 if the server replied. `+short` hides the status, so `NXDOMAIN` and an empty `NOERROR` look the same. You cannot tell a missing name from a name with no records of that type.
 
 ```sh
 dig +short -- name
 ```
 
-People script `+short` and treat empty output as a failure. Check the status, or drop `+short` when you need `NXDOMAIN`. A `CNAME` makes `+short` print the target and then the address if the server included both. You can get two lines for one name. Quote the capture. `+short` is not `+noall +answer`. The second form keeps the full answer lines, including TTL and type, and is easier to parse when you still want the status from a second run.
+People script `+short` and treat empty output as a failure. Check the status on a second run, or drop `+short` when you need to see `NXDOMAIN`. A `CNAME` makes `+short` print the target and then the address if the server included both. You can get two lines for one name. Quote the capture. `+short` is not `+noall +answer`. The second form keeps the full answer lines, including TTL and type, and is easier to parse when you still want the status from a second run. Use `+short` for a quick list of addresses. Use `+noall +answer` when a script needs the type and the TTL.
 
 ## Show only the answer section
 Also asked as: dig +noall +answer; answer section only; hide stats; dig comments off; clean dig output
