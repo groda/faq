@@ -454,6 +454,7 @@ def lookup_help() -> str:
         lines.append(f"  {directory}")
     lines.append("A file in an earlier directory wins. Put your own in the first one,")
     lines.append("loose or in a theme folder such as unix/.")
+    return "\n".join(lines)
 
 
 def main(argv: list[str] | None = None) -> None:
