@@ -448,11 +448,24 @@ def search(command: str, query: str) -> None:
     die(f"fzf failed ({proc.returncode})")
 
 
+def lookup_help() -> str:
+    lines = ["Chapters are read from the first directory that has the file:"]
+    for directory in search_dirs():
+        lines.append(f"  {directory}")
+    lines.append("A file in an earlier directory wins. Put your own in the first one,")
+    lines.append("loose or in a theme folder such as unix/.")
+
+
 def main(argv: list[str] | None = None) -> None:
     if argv is None:
         argv = sys.argv[1:]
 
-    parser = argparse.ArgumentParser(prog="faq", description="Search a FAQ of shell recipes.")
+    parser = argparse.ArgumentParser(
+        prog="faq",
+        description="Search a FAQ of shell recipes.",
+        epilog=lookup_help(),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--list", action="store_true", help="list installed chapters")
     parser.add_argument("--check", action="store_true", help="check chapter files")
     parser.add_argument("--read", action="store_true", help="show a whole chapter in $PAGER")
