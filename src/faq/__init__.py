@@ -452,8 +452,8 @@ def lookup_help() -> str:
     lines = ["Chapters are read from the first directory that has the file:"]
     for directory in search_dirs():
         lines.append(f"  {directory}")
-    lines.append("A file in an earlier directory wins. Put your own in the first one,")
-    lines.append("loose or in a theme folder such as unix/.")
+    lines.append("A file in an earlier directory wins.")
+    lines.append("Put your own page in the first directory, as grep.md or unix/grep.md.")
     return "\n".join(lines)
 
 
