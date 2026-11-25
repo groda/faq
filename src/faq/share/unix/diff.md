@@ -223,3 +223,12 @@ diff -up -- file file
 ```
 
 People expect `-p` to mean "patch" or "brief." It only decorates the hunk header. A macro, a nested function, or a language that is not C produces a useless label or none. The compare is still the whole file. `-p` does not ignore comments and it does not require the files to compile. Quote the regex if you use `-F`. An unquoted pattern is expanded by the shell.
+## Use the full terminal width in side-by-side mode
+Also asked as: diff -y full width; diff -W; side by side truncate; diff terminal width; do not cut off lines; --width
+`-y` prints two columns, and the default width is 130 columns. Lines longer than that are truncated. `-W` sets the total width in columns. Pass the width of the terminal so each side gets roughly half. `tput cols` prints that number. The flag is GNU. The columns are still truncated at the width you set. They are not wrapped.
+
+```sh
+diff -y -W "$(tput cols)" -- file file
+```
+
+People run plain `-y` and a difference past column 65 on each side is invisible. Set `-W`. People also hard-code `-W 80` on a wide terminal and still lose the ends of lines. Use the current width. A width smaller than the labels and the gutter produces cramped or empty columns. `--suppress-common-lines` still truncates. The output is for reading. It is not a patch.
